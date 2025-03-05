@@ -146,6 +146,36 @@ type MapResponse struct {
 	Error   string   `json:"error,omitempty"`
 }
 
+// SearchMetadata represents metadata for a search result
+type SearchMetadata struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	SourceURL   string `json:"sourceURL"`
+	StatusCode  int    `json:"statusCode"`
+	Error       string `json:"error"`
+}
+
+// SearchDocument represents a document in search results
+type SearchDocument struct {
+	Title       string         `json:"title"`
+	Description string         `json:"description"`
+	URL         string         `json:"url"`
+	Markdown    string         `json:"markdown"`
+	HTML        string         `json:"html"`
+	RawHTML     string         `json:"rawHtml"`
+	Links       []string       `json:"links"`
+	Screenshot  string         `json:"screenshot"`
+	Metadata    SearchMetadata `json:"metadata"`
+}
+
+// SearchResponse represents the response for search operations
+type SearchResponse struct {
+	Success bool             `json:"success"`
+	Error   string           `json:"error,omitempty"`
+	Warning string           `json:"warning,omitempty"`
+	Data    []SearchDocument `json:"data,omitempty"`
+}
+
 // requestOptions represents options for making requests.
 type requestOptions struct {
 	retries int
@@ -602,8 +632,34 @@ func (app *FirecrawlApp) MapURL(url string, params *MapParams) (*MapResponse, er
 //   - error: An error if the search request fails.
 //
 // Search is not implemented in API version 1.0.0.
-func (app *FirecrawlApp) Search(query string, params *any) (any, error) {
-	return nil, fmt.Errorf("Search is not implemented in API version 1.0.0")
+func (app *FirecrawlApp) Search(query string, params *any) (*SearchResponse, error) {
+	headers := app.prepareHeaders(nil)
+	jsonData := map[string]any{"query": query}
+
+	resp, err := app.makeRequest(
+		http.MethodPost,
+		fmt.Sprintf("%s/v1/search", app.APIURL),
+		jsonData,
+		headers,
+		"search",
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var searchResponse SearchResponse
+	err = json.Unmarshal(resp, &searchResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	if searchResponse.Success {
+		return &searchResponse, nil
+	} else {
+		return nil, fmt.Errorf("search operation failed: %s", searchResponse.Error)
+	}
+
+	// return nil, fmt.Errorf("Search is not implemented in API version 1.0.0")
 }
 
 // prepareHeaders prepares the headers for an HTTP request.

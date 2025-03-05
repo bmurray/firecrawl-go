@@ -146,6 +146,17 @@ type MapResponse struct {
 	Error   string   `json:"error,omitempty"`
 }
 
+// SearchParams represents the parameters for a search request.
+type SearchParams struct {
+	Limit         int          `json:"limit"`
+	TimeBased     string       `json:"tbs"`
+	Lang          string       `json:"lang"`
+	Country       string       `json:"country"`
+	Location      string       `json:"location"`
+	Timeout       int          `json:"timeout"`
+	ScrapeOptions ScrapeParams `json:"scrapeOptions"`
+}
+
 // SearchMetadata represents metadata for a search result
 type SearchMetadata struct {
 	Title       string `json:"title"`
@@ -627,14 +638,38 @@ func (app *FirecrawlApp) MapURL(url string, params *MapParams) (*MapResponse, er
 // SearchURL searches for a URL using the Firecrawl API.
 //
 // Parameters:
-//   - url: The URL to search for.
+//   - query: The search query.
 //   - params: Optional parameters for the search request.
 //   - error: An error if the search request fails.
-//
-// Search is not implemented in API version 1.0.0.
-func (app *FirecrawlApp) Search(query string, params *any) (*SearchResponse, error) {
+func (app *FirecrawlApp) Search(query string, params *SearchParams) (*SearchResponse, error) {
 	headers := app.prepareHeaders(nil)
 	jsonData := map[string]any{"query": query}
+	if params != nil {
+		if params.Limit != 0 {
+			if params.Limit < 1 || params.Limit > 10 {
+				return nil, fmt.Errorf("limit must be between 1 and 10")
+			}
+			jsonData["limit"] = params.Limit
+		}
+		if params.TimeBased != "" {
+			jsonData["tbs"] = params.TimeBased
+		}
+		if params.Lang != "" {
+			jsonData["lang"] = params.Lang
+		}
+		if params.Country != "" {
+			jsonData["country"] = params.Country
+		}
+		if params.Location != "" {
+			jsonData["location"] = params.Location
+		}
+		if params.Timeout != 0 {
+			jsonData["timeout"] = params.Timeout
+		}
+		if params.ScrapeOptions.Formats != nil {
+			jsonData["scrapeOptions"] = params.ScrapeOptions
+		}
+	}
 
 	resp, err := app.makeRequest(
 		http.MethodPost,

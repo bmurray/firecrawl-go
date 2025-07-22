@@ -38,30 +38,32 @@ type FirecrawlDocumentMetadata struct {
 	Language          *string              `json:"language,omitempty"`
 	Keywords          *StringOrStringSlice `json:"keywords,omitempty"`
 	Robots            *StringOrStringSlice `json:"robots,omitempty"`
-	OGTitle           *string              `json:"ogTitle,omitempty"`
-	OGDescription     *string              `json:"ogDescription,omitempty"`
-	OGURL             *string              `json:"ogUrl,omitempty"`
-	OGImage           *string              `json:"ogImage,omitempty"`
-	OGAudio           *string              `json:"ogAudio,omitempty"`
-	OGDeterminer      *string              `json:"ogDeterminer,omitempty"`
-	OGLocale          *string              `json:"ogLocale,omitempty"`
+	OGTitle           *StringOrStringSlice `json:"ogTitle,omitempty"`
+	OGDescription     *StringOrStringSlice `json:"ogDescription,omitempty"`
+	OGURL             *StringOrStringSlice `json:"ogUrl,omitempty"`
+	OGImage           *StringOrStringSlice `json:"ogImage,omitempty"`
+	OGAudio           *StringOrStringSlice `json:"ogAudio,omitempty"`
+	OGDeterminer      *StringOrStringSlice `json:"ogDeterminer,omitempty"`
+	OGLocale          *StringOrStringSlice `json:"ogLocale,omitempty"`
 	OGLocaleAlternate []*string            `json:"ogLocaleAlternate,omitempty"`
-	OGSiteName        *string              `json:"ogSiteName,omitempty"`
-	OGVideo           *string              `json:"ogVideo,omitempty"`
-	DCTermsCreated    *string              `json:"dctermsCreated,omitempty"`
-	DCDateCreated     *string              `json:"dcDateCreated,omitempty"`
-	DCDate            *string              `json:"dcDate,omitempty"`
-	DCTermsType       *string              `json:"dctermsType,omitempty"`
-	DCType            *string              `json:"dcType,omitempty"`
-	DCTermsAudience   *string              `json:"dctermsAudience,omitempty"`
-	DCTermsSubject    *string              `json:"dctermsSubject,omitempty"`
-	DCSubject         *string              `json:"dcSubject,omitempty"`
-	DCDescription     *string              `json:"dcDescription,omitempty"`
-	DCTermsKeywords   *string              `json:"dctermsKeywords,omitempty"`
-	ModifiedTime      *string              `json:"modifiedTime,omitempty"`
-	PublishedTime     *string              `json:"publishedTime,omitempty"`
-	ArticleTag        *string              `json:"articleTag,omitempty"`
-	ArticleSection    *string              `json:"articleSection,omitempty"`
+	OGSiteName        *StringOrStringSlice `json:"ogSiteName,omitempty"`
+	OGVideo           *StringOrStringSlice `json:"ogVideo,omitempty"`
+	DCTermsCreated    *StringOrStringSlice `json:"dctermsCreated,omitempty"`
+	DCDateCreated     *StringOrStringSlice `json:"dcDateCreated,omitempty"`
+	DCDate            *StringOrStringSlice `json:"dcDate,omitempty"`
+	DCTermsType       *StringOrStringSlice `json:"dctermsType,omitempty"`
+	DCType            *StringOrStringSlice `json:"dcType,omitempty"`
+	DCTermsAudience   *StringOrStringSlice `json:"dctermsAudience,omitempty"`
+	DCTermsSubject    *StringOrStringSlice `json:"dctermsSubject,omitempty"`
+	DCSubject         *StringOrStringSlice `json:"dcSubject,omitempty"`
+	DCDescription     *StringOrStringSlice `json:"dcDescription,omitempty"`
+	DCTermsKeywords   *StringOrStringSlice `json:"dctermsKeywords,omitempty"`
+	ModifiedTime      *StringOrStringSlice `json:"modifiedTime,omitempty"`
+	PublishedTime     *StringOrStringSlice `json:"publishedTime,omitempty"`
+	ArticleTag        *StringOrStringSlice `json:"articleTag,omitempty"`
+	ArticleSection    *StringOrStringSlice `json:"articleSection,omitempty"`
+	URL               *string              `json:"url,omitempty"`
+	ScrapeID          *string              `json:"scrapeId,omitempty"`
 	SourceURL         *string              `json:"sourceURL,omitempty"`
 	StatusCode        *int                 `json:"statusCode,omitempty"`
 	Error             *string              `json:"error,omitempty"`
@@ -87,6 +89,7 @@ type ScrapeParams struct {
 	WaitFor         *int               `json:"waitFor,omitempty"`
 	ParsePDF        *bool              `json:"parsePDF,omitempty"`
 	Timeout         *int               `json:"timeout,omitempty"`
+	MaxAge          *int               `json:"maxAge,omitempty"`
 }
 
 // ScrapeResponse represents the response for scraping operations
@@ -263,6 +266,13 @@ func WithClient(client *http.Client) FirecrawlOption {
 	}
 }
 
+// WithTimeout sets the timeout for the HTTP client.
+func WithTimeout(timeout time.Duration) FirecrawlOption {
+	return func(app *FirecrawlApp) {
+		app.Client.Timeout = timeout
+	}
+}
+
 // NewFirecrawlApp creates a new instance of FirecrawlApp with the provided API key and API URL.
 // If the API key or API URL is not provided, it attempts to retrieve them from environment variables.
 // If the API key is still not found, it returns an error.
@@ -270,6 +280,7 @@ func WithClient(client *http.Client) FirecrawlOption {
 // Parameters:
 //   - apiKey: The API key for authenticating with the Firecrawl API. If empty, it will be retrieved from the FIRECRAWL_API_KEY environment variable.
 //   - apiURL: The base URL for the Firecrawl API. If empty, it will be retrieved from the FIRECRAWL_API_URL environment variable, defaulting to "https://api.firecrawl.dev".
+//   - timeout: The timeout for the HTTP client. If not provided, it will default to 60 seconds.
 //
 // Returns:
 //   - *FirecrawlApp: A new instance of FirecrawlApp configured with the provided or retrieved API key and API URL.
@@ -290,15 +301,15 @@ func NewFirecrawlApp(apiKey, apiURL string, opts ...FirecrawlOption) (*Firecrawl
 		}
 	}
 
-	client := &http.Client{
-		Timeout: 60 * time.Second,
-	}
-
 	fca := &FirecrawlApp{
 		APIKey: apiKey,
 		APIURL: apiURL,
-		Client: client,
+		Client: &http.Client{
+			Timeout: 60 * time.Second, // default timeout
+		},
 	}
+
+	// Apply any custom options
 	for _, opt := range opts {
 		opt(fca)
 	}
@@ -366,6 +377,9 @@ func (app *FirecrawlApp) ScrapeURLWithContext(ctx context.Context, url string, p
 		}
 		if params.Timeout != nil {
 			scrapeBody["timeout"] = params.Timeout
+		}
+		if params.MaxAge != nil {
+			scrapeBody["maxAge"] = params.MaxAge
 		}
 	}
 
